@@ -1,5 +1,5 @@
-name: Guardian CI UI Tests(Manual)
-run-name: Guardian CI UI Tests(Manual)
+name: Guardian CI UI Tests (Manual)
+run-name: Guardian CI UI Tests (Manual)
 on:
   workflow_dispatch:
 
@@ -14,8 +14,8 @@ jobs:
           - 6379:6379
     strategy:
       matrix:
-        node-version: [ 20.18.1 ]
-        mongodb-version: [ 7.0.5 ]
+        node-version: [ 20.19.3 ]
+        mongodb-version: [ 7.0.21 ]
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
@@ -40,8 +40,6 @@ jobs:
 
       - name: Build packages
         run: |
-          # sudo apt-get update
-          # sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libnss3 libxss1 libasound2 libxtst6 xauth xvfb
           pushd interfaces
           yarn run build
           popd
@@ -141,12 +139,31 @@ jobs:
           IPFS_STORAGE_PROOF: ${{ secrets.E2E_IPFS_STORAGE_PROOF }}
           ACCESS_TOKEN_UPDATE_INTERVAL: 600000
 
-      - name: Run tests with Cypress
+      - name: Build Cypress Docker image
+        run: docker build -t cypress-runner ./e2e-tests
+
+      - name: Run Cypress Tests in Docker
         run: |
-          pushd e2e-tests
-          npm install
-          npx cypress run --headed --env "operatorId=${{ secrets.CI_HEDERA_ACCOUNT }},operatorKey=${{ secrets.CI_HEDERA_PRIV_KEY }},grepTags=ui,grepFilterSpecs=true" --spec "cypress/e2e/ui-tests/**/*.cy.js" --browser chrome
-          popd
+          docker run --network host --name cypress-test-run \
+            -e CYPRESS_operatorId=${{ secrets.CI_HEDERA_ACCOUNT }} \
+            -e CYPRESS_operatorKey=${{ secrets.CI_HEDERA_PRIV_KEY }} \
+            -e CYPRESS_grepTags=ui \
+            -e CYPRESS_grepFilterSpecs=true \
+            cypress-runner \
+            --headed \
+            --spec "cypress/e2e/ui-tests/**/*.cy.js" \
+            --browser chrome
+
+      - name: Copy test results from Docker container
+        if: always()
+        run: |
+          docker cp cypress-test-run:/e2e/cypress/test_results ./e2e-tests/cypress/test_results || true
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker rm -f cypress-test-run || true
+
       - name: Publish API Test Results
         uses: step-security/publish-unit-test-result-action@cc82caac074385ae176d39d2d143ad05e1130b2d # v2.18.0
         if: always()
