@@ -1073,6 +1073,7 @@ export class SchemaConfigComponent implements OnInit {
             }
         });
         dialogRef.onClose.subscribe(async (schema: Schema | null) => {
+            console.log(schema, 'schema');
             this.updateSchema(String(element.id), schema);
         });
     }

@@ -65,6 +65,10 @@ export class SchemaHelper {
             field.enum = _property.enum;
             field.remoteLink = _property.$ref;
         }
+
+        // if (_property.availableOptions) {
+        //     field.availableOptions = _property.availableOptions;
+        // }
         field.readOnly = !!(_property.readOnly || readonly);
         return field;
     }

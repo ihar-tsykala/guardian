@@ -263,12 +263,13 @@
                 </div>
             </ng-template>
         </div>
+
+        <!-- ENUM preview & edit -->
         <div *ngIf="enum && !loading" class="enum-options-container">
             <div *ngIf="field.controlEnum.value.length" class="form-group enum-form-field">
                 <label [htmlFor]="'enumValues'" class="form-label">Enum data</label>
                 <div class="p-chips" aria-label="Enum values">
                     <div class="p-chips-container">
-                        
                         <div
                             class="p-chips-token"
                             *ngFor="let keyword of keywords">
@@ -277,7 +278,6 @@
                         <div class="p-chips-token" *ngIf="keywords.length < field.enum.length">
                             <span class="p-chips-token-label">...</span>
                         </div>
-                        
                     </div>
                 </div>
             </div>
@@ -296,6 +296,40 @@
                 <div class="guardian-button-label">Edit values</div>
             </button>
         </div>
+
+        <!-- GEOJSON: выбор типов и предпросмотр как чипсы -->
+        <div *ngIf="geoJson && !loading" class="geojson-options-container extended-config">
+            <div class="dropdown-field guardian-input-container">
+                <label class="form-label">GeoJSON types</label>
+                <p-multiSelect
+                    class="guardian-dropdown"
+                    [options]="geoJsonOptions"
+                    [formControl]="geoJsonControl"
+                    optionLabel="label"
+                    optionValue="value"
+                    display="chip"
+                    defaultLabel="Select geometry types"
+                    [showClear]="true"
+                    appendTo="body">
+                </p-multiSelect>
+            </div>
+
+            <div *ngIf="geoKeywords.length" class="form-group geojson-form-field">
+                <label class="form-label">Selected geometries</label>
+                <div class="p-chips" aria-label="GeoJSON values">
+                    <div class="p-chips-container">
+                        <div class="p-chips-token" *ngFor="let g of geoKeywords">
+                            <span class="p-chips-token-label">{{ g }}</span>
+                        </div>
+                        <div class="p-chips-token" *ngIf="(field.controlEnum.value.length || 0) > geoKeywords.length">
+                            <span class="p-chips-token-label">...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRESET values -->
         <div *ngIf="!helpText && presetFormFields" class="selected-values">
             <div>
                 <span class="selected-values__title">Selected values</span>

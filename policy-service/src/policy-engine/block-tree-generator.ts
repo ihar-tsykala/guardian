@@ -188,9 +188,11 @@ export class BlockTreeGenerator extends NatsService {
             const userFull = await this.getUser(policyInstance, user);
             const block = PolicyComponentsUtils.GetBlockByUUID<IPolicyInterfaceBlock>(blockId);
 
+            console.log(123);
             // <-- Record
             await RecordUtils.RecordSetBlockData(policyId, userFull, block, data);
             // Record -->
+            console.log(222);
 
             // <-- Available
             const error = await PolicyComponentsUtils.isAvailableSetData(block, userFull);
@@ -198,8 +200,13 @@ export class BlockTreeGenerator extends NatsService {
                 return error;
             }
             // Available -->
+            console.log(333);
 
-            return await PolicyComponentsUtils.blockSetData(block, userFull, data);
+            console.log(block, 'block');
+            const a = await PolicyComponentsUtils.blockSetData(block, userFull, data);
+            console.log(444);
+
+            return a;
         });
 
         this.getPolicyMessages(PolicyEvents.SET_BLOCK_DATA_BY_TAG, policyId, async (msg: any) => {

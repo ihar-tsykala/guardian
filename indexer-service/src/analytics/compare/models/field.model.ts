@@ -118,6 +118,12 @@ export class FieldModel implements IWeightModel {
     public readonly enum: string[];
 
     /**
+     * Available options
+     * @public
+     */
+    // public readonly availableOptions: string[];
+
+    /**
      * Field order
      * @public
      */
@@ -204,6 +210,10 @@ export class FieldModel implements IWeightModel {
             this.enum = _property.enum;
             this.remoteLink = _property.$ref;
         }
+
+        // if (_property.availableOptions) {
+        //     this.availableOptions = _property.availableOptions;
+        // }
 
         this.readOnly = !!(_property.readOnly);
 
@@ -321,6 +331,11 @@ export class FieldModel implements IWeightModel {
                     hashState.add(i);
                 }
             }
+            // if (Array.isArray(this.availableOptions)) {
+            //     for (const i of this.availableOptions) {
+            //         hashState.add(i);
+            //     }
+            // }
             const weight = hashState.result();
             weights.push(weight);
             weightMap[WeightType.SCHEMA_LVL_4] = weight;
@@ -456,6 +471,15 @@ export class FieldModel implements IWeightModel {
                 }
             }
         }
+        // if (Array.isArray(this.availableOptions)) {
+        //     properties.push(new ArrayPropertyModel('availableOptions', this.availableOptions.length));
+        //     if (this.availableOptions.length) {
+        //         for (let index = 0; index < this.availableOptions.length; index++) {
+        //             const v = this.availableOptions[index];
+        //             properties.push(new AnyPropertyModel(String(index), v, 2, `availableOptions.${index}`));
+        //         }
+        //     }
+        // }
         if (this.condition) {
             properties.push(new AnyPropertyModel('condition', this.condition));
         }
@@ -489,6 +513,7 @@ export class FieldModel implements IWeightModel {
             comment: this.comment,
             remoteLink: this.remoteLink,
             enum: this.enum,
+            // availableOptions: this.availableOptions,
             condition: this.condition,
             order: this.order
         }

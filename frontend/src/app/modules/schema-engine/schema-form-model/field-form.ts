@@ -444,6 +444,9 @@ export class FieldForm {
         };
         item.visibility = !item.hide && !item.hidden && !item.autocalculate;
         item.preset = field.default;
+        // if (field.availableOptions) {
+        //     item.availableOptions = field.availableOptions;
+        // }
         if (preset) {
             item.isPreset = true;
             item.preset = preset[field.name];

@@ -322,6 +322,9 @@ export class SchemaFormComponent implements OnInit {
     }
 
     public isEnum(item: IFieldControl<any>) {
+        if (item.remoteLink || item.enum) {
+            // console.log(item, 'item item');
+        }
         return item.remoteLink || item.enum;
     }
 
@@ -679,6 +682,14 @@ export class SchemaFormComponent implements OnInit {
                 }
             }
         }
+    }
+
+    public str(data: any) {
+        // return JSON.stringify(data);
+        if (data.customType === 'geo' || data.customType === '') {
+            console.log(data, 'datadata');
+        } 
+        return '';
     }
 }
 

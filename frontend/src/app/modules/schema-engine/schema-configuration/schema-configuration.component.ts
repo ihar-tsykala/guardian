@@ -603,6 +603,7 @@ export class SchemaConfigurationComponent implements OnInit {
             unit,
             remoteLink,
             enumArray,
+            availableOptionsArray,
             textColor,
             textSize,
             textBold,
@@ -677,6 +678,14 @@ export class SchemaConfigurationComponent implements OnInit {
                 exampleValue = example;
             }
         }
+
+        console.log(enumArray, 'enumArray');
+        console.log(availableOptionsArray, 'availableOptionsArray');
+        console.log(type, 'type');
+        console.log(type?.customType, 'type?.customType');
+        console.log(!remoteLink, '!remoteLink');
+        console.log((type?.customType === 'enum' || type?.customType === 'geo') && !remoteLink, '(type?.customType === enum || type?.customType === geo) && !remoteLink');
+
         return {
             autocalculate,
             expression,
@@ -700,7 +709,9 @@ export class SchemaConfigurationComponent implements OnInit {
             property,
             readOnly: false,
             remoteLink: type?.customType === 'enum' ? remoteLink : undefined,
+            // enum: (type?.customType === 'enum' || type?.customType === 'geo') && !remoteLink ? enumArray : undefined,
             enum: type?.customType === 'enum' && !remoteLink ? enumArray : undefined,
+            availableOptions: availableOptionsArray || type?.availableOptions,
             isPrivate: this.dataForm.value?.entity === SchemaEntity.EVC ? isPrivate : undefined,
             default: defaultValue,
             suggest: suggestValue,
@@ -786,6 +797,7 @@ export class SchemaConfigurationComponent implements OnInit {
 
         schema.update(fields, conditions);
         schema.updateRefs(this.subSchemas);
+        console.log(schema, 'schemaschemaschemaschema');
         return schema;
     }
 
@@ -799,6 +811,8 @@ export class SchemaConfigurationComponent implements OnInit {
         schema.category = this.isPolicy ? SchemaCategory.POLICY : (
             this.isTag ? SchemaCategory.TAG : SchemaCategory.SYSTEM
         );
+        console.log(schema, 'getSchemagetSchema');
+
         return schema;
     }
 

@@ -253,8 +253,15 @@ export class VCJS {
 
         this.prepareSchema(schema);
 
+        console.log(await this.loadSchema, 'await this.loadSchema verifySchema');
+        console.log(ajv, 'ajv verifySchema');
+        console.log(schema, 'schema verifySchema');
+
         const validate = await ajv.compileAsync(schema);
         const valid = validate(vc);
+        console.log(valid, 'valid verifySchema');
+        console.log(validate, 'validate verifySchema');
+        console.log(vc, 'vc verifySchema');
 
         return new CheckResult(valid, 'JSON_SCHEMA_VALIDATION_ERROR', validate.errors as any);
     }
@@ -328,10 +335,328 @@ export class VCJS {
 
         this.prepareSchema(schema);
 
+
+        // if (schema.properties) {
+        //     Object.entries(schema.properties).forEach(([key, value]: [string, any]) => {
+        //         if (value?.$ref) {
+
+        //         }
+        //     })
+        // }
+        // if (subject?.field2?.field11) {
+        //     subject.field2.field11.test1 = 'qwe'
+        // }
+        // if (schema?.$defs?.['#2ebbead8-6fcf-4b52-9435-74f9d5ee81fa']?.properties?.field11) {
+        //     schema.$defs['#2ebbead8-6fcf-4b52-9435-74f9d5ee81fa'].properties.field11.test1 = 'qwe';
+        // }
+        console.log(await this.loadSchema, 'await this.loadSchema verifySubject');
+        // console.log(ajv, 'ajv verifySubject');
+        console.log(schema, 'schema verifySubject');
+        console.log(schema?.$defs?.['#GeoJSON'], 'schema geo verifySubject');
+        console.log(schema?.$defs?.['#2ebbead8-6fcf-4b52-9435-74f9d5ee81fa'], 'schema by id verifySubject');
+
+
         const validate = await ajv.compileAsync(schema);
+
 
         const valid = validate(subject);
 
+
+
+        console.log(valid, 'valid verifySubject');
+        console.log(validate, 'validate verifySubject');
+        console.log(subject, 'subject verifySubject');
+        console.log(subject?.field2?.field11, 'subject verifySubject');
+
+function collectGeoJSONPaths(schema) {
+  const defs = schema.$defs || {};
+  const out = {};
+
+  const parseComment = (c) => {
+    if (typeof c !== 'string') return null;
+    try { return JSON.parse(c); } catch { return c; }
+  };
+
+  const resolveRef = (ref) => {
+    if (!ref) return null;
+    return defs[ref] || defs[ref.replace(/^#/, '')] || null;
+  };
+
+  const visit = (node, path) => {
+    if (!node || typeof node !== 'object') return;
+
+    if ('$ref' in node) {
+      const ref = node['$ref'];
+
+      if (ref === '#GeoJSON') {
+        out[path] = parseComment(node['$comment']);
+        return;
+      }
+      const target = resolveRef(ref);
+      if (target) {
+        if (target.properties && typeof target.properties === 'object') {
+          for (const [k, v] of Object.entries(target.properties)) {
+            visit(v, path ? `${path}.${k}` : k);
+          }
+        }
+        for (const comb of ['oneOf', 'allOf', 'anyOf']) {
+          if (Array.isArray(target[comb])) target[comb].forEach((sub) => visit(sub, path));
+        }
+      }
+    }
+
+    if (node.properties && typeof node.properties === 'object') {
+      for (const [k, v] of Object.entries(node.properties)) {
+        visit(v, path ? `${path}.${k}` : k);
+      }
+    }
+    for (const comb of ['oneOf', 'allOf', 'anyOf']) {
+      if (Array.isArray(node[comb])) node[comb].forEach((sub) => visit(sub, path));
+    }
+  };
+
+  if (schema.properties && typeof schema.properties === 'object') {
+    for (const [k, v] of Object.entries(schema.properties)) visit(v, k);
+  }
+  return out;
+}
+
+function getByPath(obj, path) {
+  return path.split('.').reduce((acc, key) => (acc != null ? acc[key] : undefined), obj);
+}
+
+// ===== валидатор GeoJSON с поддержкой Feature/FeatureCollection =====
+const SUPPORTED_TYPES = new Set([
+  'Point', 'LineString', 'Polygon',
+  'MultiPoint', 'MultiLineString', 'MultiPolygon'
+]);
+const EPS = 1e-9;
+const isNumber = (x) => typeof x === 'number' && Number.isFinite(x);
+
+function positionsEqual(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!isNumber(a[i]) || !isNumber(b[i])) return false;
+    if (Math.abs(a[i] - b[i]) > EPS) return false;
+  }
+  return true;
+}
+
+function validatePosition(p, errors, path = 'coordinates') {
+  if (!Array.isArray(p)) { errors.push(`${path}: позиция должна быть массивом`); return; }
+  if (p.length < 2) { errors.push(`${path}: минимум 2 числа [lon, lat]`); return; }
+  const [lon, lat] = p;
+  if (!isNumber(lon) || !isNumber(lat)) errors.push(`${path}: lon/lat должны быть числами`);
+  if (isNumber(lon) && (lon < -180 || lon > 180)) errors.push(`${path}: lon вне диапазона [-180,180]`);
+  if (isNumber(lat) && (lat < -90 || lat > 90)) errors.push(`${path}: lat вне диапазона [-90,90]`);
+}
+
+function validateLineString(coords, errors, path) {
+  if (!Array.isArray(coords)) { errors.push(`${path}: должен быть массивом позиций`); return; }
+  if (coords.length < 2) errors.push(`${path}: минимум 2 позиции`);
+  coords.forEach((pos, i) => validatePosition(pos, errors, `${path}[${i}]`));
+}
+
+function validateLinearRing(ring, errors, path) {
+  if (!Array.isArray(ring)) { errors.push(`${path}: должен быть массивом позиций (кольцо)`); return; }
+  if (ring.length < 4) errors.push(`${path}: кольцо минимум 4 позиции`);
+  ring.forEach((pos, i) => validatePosition(pos, errors, `${path}[${i}]`));
+  if (ring.length >= 4 && !positionsEqual(ring[0], ring[ring.length - 1])) {
+    errors.push(`${path}: первое и последнее положение должны совпадать (замкнуто)`);
+  }
+}
+
+function validatePolygon(coords, errors, path) {
+  if (!Array.isArray(coords) || coords.length === 0) {
+    errors.push(`${path}: непустой массив колец`);
+    return;
+  }
+  coords.forEach((ring, i) => validateLinearRing(ring, errors, `${path}[${i}]`));
+}
+
+function validateGeometry(geom, allowedTypes /* Set|null */, pathBase = '') {
+  const errors = [];
+  if (geom == null || typeof geom !== 'object' || Array.isArray(geom)) {
+    return { ok: false, type: undefined, errors: [`${pathBase||'value'}: должно быть объектом GeoJSON`] };
+  }
+
+  const type = geom.type;
+  if (typeof type !== 'string') errors.push(`поле "type" обязательно и должно быть строкой`);
+
+  // фильтр по доступным типам
+  if (typeof type === 'string' && allowedTypes && allowedTypes.size > 0 && !allowedTypes.has(type)) {
+    errors.push(`тип "${type}" не входит в допустимые: [${[...allowedTypes].join(', ')}]`);
+  }
+
+  // поддерживаем только перечисленные геометрии
+  if (typeof type === 'string' && !SUPPORTED_TYPES.has(type)) {
+    errors.push(`тип "${type}" не поддерживается как геометрия (поддерживаются: ${[...SUPPORTED_TYPES].join(', ')})`);
+    return { ok: errors.length === 0, type, errors };
+  }
+
+  if (!('coordinates' in geom)) {
+    errors.push(`отсутствует поле "coordinates"`);
+    return { ok: errors.length === 0, type, errors };
+  }
+
+  const c = geom.coordinates;
+
+  switch (type) {
+    case 'Point':
+      validatePosition(c, errors, `${pathBase ? pathBase + '.' : ''}coordinates`);
+      break;
+
+    case 'MultiPoint':
+      if (!Array.isArray(c)) { errors.push('coordinates: должен быть массивом позиций'); break; }
+      if (c.length === 0) errors.push('coordinates: MultiPoint не должен быть пустым');
+      c.forEach((pos, i) => validatePosition(pos, errors, `coordinates[${i}]`));
+      break;
+
+    case 'LineString':
+      validateLineString(c, errors, 'coordinates');
+      break;
+
+    case 'MultiLineString':
+      if (!Array.isArray(c)) { errors.push('coordinates: должен быть массивом LineString'); break; }
+      if (c.length === 0) errors.push('coordinates: MultiLineString не должен быть пустым');
+      c.forEach((ls, i) => validateLineString(ls, errors, `coordinates[${i}]`));
+      break;
+
+    case 'Polygon':
+      validatePolygon(c, errors, 'coordinates');
+      break;
+
+    case 'MultiPolygon':
+      if (!Array.isArray(c)) { errors.push('coordinates: должен быть массивом Polygon'); break; }
+      if (c.length === 0) errors.push('coordinates: MultiPolygon не должен быть пустым');
+      c.forEach((poly, i) => validatePolygon(poly, errors, `coordinates[${i}]`));
+      break;
+  }
+
+  return { ok: errors.length === 0, type, errors };
+}
+
+// нормализация availableOptions -> Set поддерживаемых типов (или null = без ограничения)
+function normalizeAllowedOptions(meta) {
+  const raw = meta && Array.isArray(meta.availableOptions) ? meta.availableOptions : null;
+  if (!raw || raw.length === 0) return null;
+  const mapByLower = {};
+  [...SUPPORTED_TYPES].forEach(t => mapByLower[t.toLowerCase()] = t);
+  const set = new Set();
+  raw.forEach((x) => {
+    if (typeof x !== 'string') return;
+    const m = mapByLower[String(x).toLowerCase()];
+    if (m) set.add(m);
+  });
+  return set;
+}
+
+// новые: валидаторы Feature и FeatureCollection
+function validateFeature(feature, allowedTypes, basePath) {
+  const errs = [];
+  if (!feature || typeof feature !== 'object' || Array.isArray(feature)) {
+    return [{ path: basePath, ok: false, type: 'Feature', errors: ['Feature должен быть объектом'] }];
+  }
+  if (feature.type !== 'Feature') {
+    return [{ path: basePath, ok: false, type: feature.type, errors: ['ожидался type="Feature"'] }];
+  }
+  const results = [];
+  if (!('geometry' in feature)) {
+    results.push({ path: basePath, ok: false, type: 'Feature', errors: ['отсутствует поле "geometry"'] });
+    return results;
+  }
+  const g = feature.geometry;
+  if (g == null) {
+    results.push({ path: basePath + '.geometry', ok: false, type: undefined, errors: ['geometry не может быть null'] });
+    return results;
+  }
+  const r = validateGeometry(g, allowedTypes, basePath + '.geometry');
+  results.push({ path: basePath + '.geometry', ...r, allowedTypes: allowedTypes ? [...allowedTypes] : 'не ограничено' });
+  return results;
+}
+
+function validateFeatureCollection(fc, allowedTypes, basePath) {
+  if (!fc || typeof fc !== 'object' || Array.isArray(fc)) {
+    return [{ path: basePath, ok: false, type: 'FeatureCollection', errors: ['FeatureCollection должен быть объектом'] }];
+  }
+  if (fc.type !== 'FeatureCollection') {
+    return [{ path: basePath, ok: false, type: fc.type, errors: ['ожидался type="FeatureCollection"'] }];
+  }
+  if (!Array.isArray(fc.features)) {
+    return [{ path: basePath, ok: false, type: 'FeatureCollection', errors: ['поле "features" должно быть массивом'] }];
+  }
+  // допустим пустой массив — это валидный GeoJSON, просто без фич
+  const results = [];
+  fc.features.forEach((feat, i) => {
+    const sub = validateFeature(feat, allowedTypes, `${basePath}.features[${i}]`);
+    results.push(...sub);
+  });
+  // если коллекция пустая, добавим информационную запись (не ошибка)
+  if (fc.features.length === 0) {
+    results.push({ path: basePath, ok: true, type: 'FeatureCollection', errors: [] });
+  }
+  return results;
+}
+
+// диспетчер по типу входного значения на пути
+function validateAnyGeoValue(value, allowedTypes, basePath) {
+  if (value && typeof value === 'object') {
+    if (value.type === 'FeatureCollection') {
+      return validateFeatureCollection(value, allowedTypes, basePath);
+    }
+    if (value.type === 'Feature') {
+      return validateFeature(value, allowedTypes, basePath);
+    }
+    // предполагаем «голую» геометрию
+    const r = validateGeometry(value, allowedTypes, basePath);
+    return [{ path: basePath, ...r, allowedTypes: allowedTypes ? [...allowedTypes] : 'не ограничено' }];
+  }
+  return [{ path: basePath, ok: false, type: undefined, errors: ['значение должно быть объектом GeoJSON/Feature/FeatureCollection'] }];
+}
+
+// ===== связка с обходом схемы =====
+function validateDataBySchemaGeoJSON(schema, data) {
+  const pathsMeta = collectGeoJSONPaths(schema);
+  const all = [];
+
+  for (const [path, meta] of Object.entries(pathsMeta)) {
+    const value = getByPath(data, path);
+    const allowed = normalizeAllowedOptions(meta);
+    console.log(value, 'value');
+    console.log(value?.features, 'value.features');
+    console.log(value?.features?.[0], 'value.features[0]');
+    console.log(value?.features?.[0]?.geometry?.coordinates, 'value.features[0]?.geometry?.coordinates');
+
+    if (value === undefined) {
+      all.push({ path, ok: false, type: undefined, errors: ['значение по пути отсутствует'] });
+      continue;
+    }
+    const results = validateAnyGeoValue(value, allowed, path);
+    // если allowed есть, но ни один поддерживаемый тип из него не попал — отметим
+    if (allowed && allowed.size === 0) {
+      results.unshift({ path, ok: false, type: undefined, errors: ['в availableOptions нет поддерживаемых типов (Point/LineString/Polygon/Multi*)'] });
+    }
+    all.push(...results);
+  }
+
+  return all;
+}
+
+// ===== пример использования =====
+const report = validateDataBySchemaGeoJSON(schema, subject);
+
+// краткий вывод
+for (const r of report) {
+  if (r.ok) {
+    console.log(`[OK] ${r.path} :: ${r.type ?? '—'} :: allowed=${Array.isArray(r.allowedTypes)? r.allowedTypes.join(', ') : (r.allowedTypes ?? '')}`);
+  } else {
+    console.warn(`[ERR] ${r.path} :: ${r.type ?? '—'}`);
+    r.errors.forEach(e => console.warn('  -', e));
+  }
+}
+
+throw new Error('test');
         return new CheckResult(valid, 'JSON_SCHEMA_VALIDATION_ERROR', validate.errors as any);
     }
 

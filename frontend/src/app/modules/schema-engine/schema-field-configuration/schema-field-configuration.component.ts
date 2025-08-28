@@ -8,7 +8,13 @@ import {
     Output,
     SimpleChanges
 } from '@angular/core';
-import { AbstractControl, UntypedFormControl, UntypedFormGroup, Validators, } from '@angular/forms';
+import {
+    AbstractControl,
+    UntypedFormArray,
+    UntypedFormControl,
+    UntypedFormGroup,
+    Validators,
+} from '@angular/forms';
 import { SchemaField, UnitSystem } from '@guardian/interfaces';
 import { ToastrService } from 'ngx-toastr';
 import { IPFS_SCHEMA } from 'src/app/services/api';
@@ -50,6 +56,7 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
     public autocalculated = false;
     public unit: boolean = true;
     public enum: boolean = false;
+    public availableActions: boolean = false;
     public helpText: boolean = false;
     public loading: boolean = false;
     public keywords: string[] = [];
@@ -62,7 +69,6 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
         { label: 'Hidden', value: 'hidden' },
         { label: 'Required', value: 'required' },
         { label: 'Auto Calculate', value: 'autocalculate' },
-
     ];
     public error: any;
     public parsedField!: any;
@@ -75,6 +81,29 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
     private fieldTypeSub: Subscription;
     private fieldPropertySub: Subscription;
     private _sd?: any;
+
+    /** GEOJSON state */
+    public geoJson = false;
+    public geoJsonControl = new UntypedFormControl([]);
+    public geoJsonOptions = [
+        // { label: 'Point', value: 'Point' },
+        // { label: 'MultiPoint', value: 'MultiPoint' },
+        // { label: 'LineString', value: 'LineString' },
+        // { label: 'MultiLineString', value: 'MultiLineString' },
+        // { label: 'Polygon', value: 'Polygon' },
+        // { label: 'MultiPolygon', value: 'MultiPolygon' },
+        // { label: 'GeometryCollection', value: 'GeometryCollection' },
+        // { label: 'Feature', value: 'Feature' },
+        // { label: 'FeatureCollection', value: 'FeatureCollection' },
+                { label: 'Point', value: 'Point' },
+        { label: 'Polygon', value: 'Polygon' },
+        { label: 'LineString', value: 'LineString' },
+        { label: 'MultiPoint', value: 'MultiPoint' },
+        { label: 'MultiPolygon', value: 'MultiPolygon' },
+        { label: 'MultiLineString', value: 'MultiLineString' }
+    ];
+    public geoKeywords: string[] = [];
+    private geoJsonSub?: Subscription;
 
     constructor(
         public dialog: DialogService,
@@ -261,9 +290,55 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
             }
             this.field.expression.updateValueAndValidity();
         });
+
         this.fieldPropertySub = this.property.valueChanges.subscribe(val => {
             this.field.property.setValue(val);
         });
+
+        // const initialGeo = this.field.controlEnum?.value;
+        // if (Array.isArray(initialGeo)) {
+        //     this.geoJsonControl.setValue(initialGeo);
+        //     this.updateGeoKeywords(initialGeo);
+        // }
+        // this.geoJsonSub = this.geoJsonControl.valueChanges
+        //     .pipe(takeUntil(this.destroy$))
+        //     .subscribe((vals: string[] | null) => {
+        //         const value = vals || [];
+        //         const fc: any = (this.field as any).controlEnum;
+
+        //         if (fc instanceof UntypedFormArray) {
+        //             fc.clear();
+        //             value.forEach(v => fc.push(new UntypedFormControl(v)));
+        //         } else if (fc instanceof UntypedFormControl) {
+        //             fc.patchValue(value);
+        //         } else {
+        //             (this.field as any).controlEnum = new UntypedFormControl(value);
+        //         }
+
+        //         this.updateGeoKeywords(value);
+        //     });
+        const initialGeo = this.field.controlAvailableOptions?.value;
+        if (Array.isArray(initialGeo)) {
+            this.geoJsonControl.setValue(initialGeo);
+            this.updateGeoKeywords(initialGeo);
+        }
+        this.geoJsonSub = this.geoJsonControl.valueChanges
+            .pipe(takeUntil(this.destroy$))
+            .subscribe((vals: string[] | null) => {
+                const value = vals || [];
+                const fc: any = (this.field as any).controlAvailableOptions;
+
+                if (fc instanceof UntypedFormArray) {
+                    fc.clear();
+                    value.forEach(v => fc.push(new UntypedFormControl(v)));
+                } else if (fc instanceof UntypedFormControl) {
+                    fc.patchValue(value);
+                } else {
+                    (this.field as any).controlAvailableOptions = new UntypedFormControl(value);
+                }
+
+                this.updateGeoKeywords(value);
+            });
     }
 
     ngOnChanges(changes: SimpleChanges): void {
@@ -282,7 +357,6 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
                 };
             });
         }
-        // this.cdr.detectChanges();
         if (changes.extended && Object.keys(changes).length === 1) {
             return;
         }
@@ -300,6 +374,7 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
     ngOnDestroy() {
         this.fieldPropertySub.unsubscribe();
         this.fieldTypeSub.unsubscribe();
+        this.geoJsonSub?.unsubscribe();
         this.destroy$.next(true);
         this.destroy$.unsubscribe();
     }
@@ -321,6 +396,24 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
             }
         }
     }
+
+    // updateAvailableOptions(values: string[]) {
+    //     if (!values) {
+    //         return;
+    //     }
+
+    //     this.field.controlAvailableOptions.clear();
+    //     values.forEach((item: any) => {
+    //         this.field.controlAvailableOptions.push(new UntypedFormControl(item));
+    //     });
+
+    //     this.geoKeywords = [];
+    //     if (values && values.length) {
+    //         for (let i = 0; i < values.length && i < 5; i++) {
+    //             this.geoKeywords.push(values[i]);
+    //         }
+    //     }
+    // }
 
     loadRemoteEnumData(link: string) {
         this.loading = true;
@@ -347,6 +440,9 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
         this.isString = (item && item.name === 'String') || false;
         this.helpText = (item && item.name === 'Help Text') || false;
         this.enum = ((item && item.name) || typeName) === 'Enum';
+
+        // GEOJSON переключатель UI
+        this.geoJson = ((item && item.name) || typeName) === 'GeoJSON';
     }
 
     onEditEnum() {
@@ -434,5 +530,18 @@ export class SchemaFieldConfigurationComponent implements OnInit, OnDestroy {
                 this.field.expression.updateValueAndValidity();
             }
         })
+    }
+
+    /** Создаёт контрол на поле, если его нет (совместимость без правок FieldControl) */
+    // private ensureGeoJsonControlOnField() {
+    //     const f: any = this.field as any;
+    //     if (!f.controlGeoJsonTypes) {
+    //         // по умолчанию как FormControl<string[]>
+    //         f.controlGeoJsonTypes = new UntypedFormControl([]);
+    //     }
+    // }
+
+    private updateGeoKeywords(values: string[]) {
+        this.geoKeywords = (values || []).slice(0, 5);
     }
 }

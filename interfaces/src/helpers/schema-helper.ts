@@ -50,12 +50,19 @@ export class SchemaHelper {
         field.comment = _property.$comment;
         field.examples = Array.isArray(_property.examples) ? _property.examples : null;
         field.default = _property.default;
+        // if (_property.availableOptions) {
+        //     field.availableOptions = _property.availableOptions;
+        // }
         if (field.isArray) {
             _property = _property.items;
         }
         field.isRef = !!(_property.$ref && !_property.type);
         if (field.isRef) {
             field.type = _property.$ref;
+
+            // if (_property.enum) {
+            //     field.enum = _property.enum;
+            // }
         } else {
             field.type = _property.type ? String(_property.type) : null;
             field.format = _property.format ? String(_property.format) : null;
@@ -63,6 +70,9 @@ export class SchemaHelper {
             field.enum = _property.enum;
             field.remoteLink = _property.$ref;
         }
+        // if (_property.availableOptions) {
+        //     field.availableOptions = _property.availableOptions;
+        // }
         field.readOnly = !!(_property.readOnly || readonly);
         return field;
     }
@@ -86,6 +96,7 @@ export class SchemaHelper {
             textSize,
             textBold,
             orderPosition,
+            availableOptions,
             isPrivate,
             hidden,
             suggest,
@@ -124,6 +135,7 @@ export class SchemaHelper {
                 field.font.bold = textBold;
             }
         }
+        field.availableOptions = availableOptions;
         field.property = property ? String(property) : null;
         field.customType = customType ? String(customType) : null;
         field.isPrivate = isPrivate;
@@ -165,8 +177,15 @@ export class SchemaHelper {
             item = property;
         }
 
+        // if (field.availableOptions) {
+        //     item.availableOptions = field.availableOptions;
+        // }
         if (field.isRef) {
             item.$ref = field.type;
+
+            // if (field.enum) {
+            //     item.enum = field.enum;
+            // }
         } else {
             item.type = field.type;
             if (field.remoteLink) {
@@ -182,6 +201,9 @@ export class SchemaHelper {
                 item.pattern = field.pattern;
             }
         }
+        // if (field.availableOptions) {
+        //     item.availableOptions = field.availableOptions;
+        // }
 
         property.$comment = SchemaHelper.buildFieldComment(field, name, contextURL, orderPosition);
 
@@ -539,6 +561,9 @@ export class SchemaHelper {
         }
         if (field.textBold) {
             comment.textBold = field.textBold;
+        }
+        if (field.availableOptions) {
+            comment.availableOptions = field.availableOptions;
         }
         if (Number.isInteger(orderPosition) && orderPosition >= 0) {
             comment.orderPosition = orderPosition;

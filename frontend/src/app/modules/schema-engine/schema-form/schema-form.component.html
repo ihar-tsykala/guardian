@@ -406,9 +406,11 @@
                             <div *ngIf="item.control" class="form-field-array-item">
                                 <div class="form-field-sub-group">
                                     <ng-container [ngSwitch]="item.customType">
+                                        {{ str(item) }}
                                         <app-geojson-type
                                             *ngSwitchCase="'geo'"
                                             [form-model]="item.model"
+                                            [available-options]="item.availableOptions"
                                             [disabled]="item.control?.disabled">
                                         </app-geojson-type>
                                         <app-sentinel-hub-type
@@ -514,9 +516,11 @@
                                             <div class="form-field-array-item">
                                                 <div class="form-field-group">
                                                     <ng-container [ngSwitch]="item.customType">
+                                                        {{ str(item) }}
                                                         <app-geojson-type
                                                             *ngSwitchCase="'geo'"
                                                             [form-model]="listItem.model"
+                                                            [available-options]="item.availableOptions"
                                                             [disabled]="item.control?.disabled">
                                                         </app-geojson-type>
                                                         <app-sentinel-hub-type
